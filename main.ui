@@ -1,21 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-Copyright (C) 2018-2019 Husain Al Marzooq, Andre Ramos
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>
--->
-
 <ui version="4.0">
  <class>mainWindow</class>
  <widget class="QMainWindow" name="mainWindow">
@@ -23,21 +6,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>275</width>
-    <height>182</height>
+    <width>286</width>
+    <height>266</height>
    </rect>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>275</width>
-    <height>182</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>275</width>
-    <height>182</height>
-   </size>
   </property>
   <property name="font">
    <font>
@@ -155,18 +126,159 @@ border: 0;</string>
      </layout>
     </item>
     <item>
-     <widget class="QRadioButton" name="solarRadio">
-      <property name="text">
-       <string>Solar Tracking Mode</string>
+     <layout class="QHBoxLayout" name="horizontalLayout_4">
+      <property name="topMargin">
+       <number>5</number>
       </property>
-     </widget>
+      <item>
+       <widget class="QRadioButton" name="solarRadio">
+        <property name="text">
+         <string>Track the Sun</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>+</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_3">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_5">
+          <item>
+           <widget class="QLabel" name="label_2">
+            <property name="text">
+             <string>Altitude:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="sunAltBox">
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+            <property name="minimum">
+             <number>-90</number>
+            </property>
+            <property name="maximum">
+             <number>90</number>
+            </property>
+            <property name="singleStep">
+             <number>5</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_6">
+          <item>
+           <widget class="QLabel" name="label_3">
+            <property name="text">
+             <string>Azimuth:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="sunAzBox">
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+            <property name="minimum">
+             <number>-359</number>
+            </property>
+            <property name="maximum">
+             <number>359</number>
+            </property>
+            <property name="singleStep">
+             <number>5</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+     </layout>
     </item>
     <item>
-     <widget class="QRadioButton" name="lunarRadio">
-      <property name="text">
-       <string>Lunar Tracking Mode</string>
-      </property>
-     </widget>
+     <layout class="QHBoxLayout" name="horizontalLayout_7">
+      <item>
+       <widget class="QRadioButton" name="lunarRadio">
+        <property name="text">
+         <string>Track the Moon</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_5">
+        <property name="text">
+         <string>+</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_9">
+          <item>
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string>Altitude:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="moonAltBox">
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+            <property name="minimum">
+             <number>-90</number>
+            </property>
+            <property name="maximum">
+             <number>90</number>
+            </property>
+            <property name="singleStep">
+             <number>5</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_10">
+          <item>
+           <widget class="QLabel" name="label_6">
+            <property name="text">
+             <string>Azimuth:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="moonAzBox">
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+            <property name="minimum">
+             <number>-359</number>
+            </property>
+            <property name="maximum">
+             <number>359</number>
+            </property>
+            <property name="singleStep">
+             <number>5</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+     </layout>
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -190,6 +302,12 @@ border: 0;</string>
     </item>
     <item>
      <widget class="QLabel" name="statusLabel">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
       <property name="font">
        <font>
         <pointsize>8</pointsize>
@@ -205,8 +323,6 @@ border: 0;</string>
  </widget>
  <tabstops>
   <tabstop>manualRadio</tabstop>
-  <tabstop>solarRadio</tabstop>
-  <tabstop>lunarRadio</tabstop>
   <tabstop>pushButton</tabstop>
   <tabstop>recalibrateButton</tabstop>
  </tabstops>
