@@ -283,7 +283,20 @@ border: 0;</string>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>
-       <widget class="QPushButton" name="pushButton">
+       <widget class="QPushButton" name="stopButton">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Stop</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="setButton">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
           <horstretch>0</horstretch>
@@ -323,7 +336,6 @@ border: 0;</string>
  </widget>
  <tabstops>
   <tabstop>manualRadio</tabstop>
-  <tabstop>pushButton</tabstop>
   <tabstop>recalibrateButton</tabstop>
  </tabstops>
  <resources/>

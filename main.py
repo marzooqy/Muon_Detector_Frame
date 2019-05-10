@@ -17,18 +17,17 @@ vendor_id = 9025
 product_id = 67
 
 """
-list of elements in the main_window object (not complete):
+list of elements in the main_window object:
 radio buttons: manualRadio, solarRadio, LunarRadio
 textboxes: altitudeBox, azimuthBox
 spinBoxes: sunAltBox, sunAzBox, moonAltBox, moonAzBox
-buttons: recalibrateButton, pushButton (the button at the bottom)
+buttons: recalibrateButton, stopButton, setButton
 labels: statusLabel
 """
 
 """
 list of elements in the recalibration_window object:
-labels: altLabel, azLabel
-buttons: leftAltButton, rightAltButton, leftAzButton, rightAzButton, pushButton
+buttons: leftAltButton, rightAltButton, leftAzButton, rightAzButton, stopButton, doneButton 
 spinboxes: altSpinBox, azSpinBox
 """
 
@@ -40,7 +39,6 @@ class Coordinates(QtCore.QThread):
 	failed = QtCore.pyqtSignal(str) #sent when an error occurs
 	sent = QtCore.pyqtSignal(float, float) #sent when the coordinates are sent to the arduino, just to set the boxes text equal to the coordinates
 	status_update = QtCore.pyqtSignal(str) #sent when the status bar needs to be updated
-	coordinates_error = QtCore.pyqtSignal(str) #sent when the altitude is not within the expected range
 
 	def __init__(self):
 		QtCore.QThread.__init__(self)
@@ -123,9 +121,9 @@ class Coordinates(QtCore.QThread):
 		else:
 			self.stop_tracking()
 			if alt > 90:
-				self.coordinates_error.emit('The total altitude is larger than 90.')
+				show_error('The total altitude is larger than 90.')
 			else:
-				self.coordinates_error.emit('The total altitude is less than 0.')
+				show_error('The total altitude is less than 0.')
 		
 	#used to start tracking an object (the sun or the moon)
 	def start_tracking(self, object, added_alt, added_az):
@@ -145,27 +143,19 @@ class Coordinates(QtCore.QThread):
 		
 #--------------------------------------------------
 
-#connects to the arduino, and sends and receives signals from it
-class Connector(QtCore.QThread):
-	succeded = QtCore.pyqtSignal()
-	failed = QtCore.pyqtSignal(str)
-	done_moving = QtCore.pyqtSignal()
-	status_update = QtCore.pyqtSignal(str)
-	
+#connects to the arduino, and sends signals to it
+class Connector:
 	def __init__(self):
-		QtCore.QThread.__init__(self)
-		
-		#checks to see if there is a signal sent by the arduino every 0.1 second, the signal is used to notify the program that the device is done moving
-		self.reader = QtCore.QTimer()
-		self.reader.timeout.connect(self._read)
-		self.reader.setInterval(100)
-		
 		self.path = ''
 		self.connected = False
 		self.first_could_not_connect = True #used to make sure that the 'could not connect' error is only displayed once
 		self.found = False
 		self.first_not_found = True #used to display an error when the program is first lunched if the arduino is not connected
-	
+		
+		self.checker = QtCore.QTimer()
+		self.checker.timeout.connect(self.connect)
+		self.checker.setInterval(2000)
+		
 	#looks for the arduino
 	def find(self):
 		for port in serial.tools.list_ports.comports():
@@ -178,45 +168,48 @@ class Connector(QtCore.QThread):
 		self.found = False #this line will only run if the return statement doesn't run
 		
 	#this function is running all the time. it checks to see if the arduino is still connected, and also attempts to connect to it when it's not connected
-	def run(self):
-		while True:
-			if not self.found and not self.connected:
-				self.status_update.emit('Looking for device...')		
-				
-			self.find()
+	def connect(self):
+		if not self.found and not self.connected:
+			status.update('Looking for device...')		
 			
-			if self.first_not_found:
-				self.failed.emit('Could not find the device. Make sure that it is plugged in and recognized by the computer.')
-				self.first_not_found = False
-				
-			elif self.found and not self.connected:
-				try:
-					self.status_update.emit('Attempting to connect to the device...')
-					self.arduino = serial.Serial(self.path, 9600, timeout=1)
-					time.sleep(2) #should wait for 2 seconds for the arduino to reset
-					
-					self.succeded.emit()
-					self.status_update.emit('The device has been connected.')
-					self.connected = True
-					
-				except serial.serialutil.SerialException:
-					if self.first_could_not_connect:
-						self.failed.emit('Could not connect to the device.')	
-						self.first_could_not_connect = False
-						
-					else:
-						#will fail without displaying an error
-						#a signal is sent just to disable the interface
-						self.failed.emit('')
-					
-			elif self.connected and not self.found:
-				self.failed.emit('The device has been disconnected.')
-				
-				self.first_could_not_connect = True #enabling this again to make it possible for the error to run again
-				self.connected = False
-				
-			time.sleep(2)
+		self.find()
+		
+		if self.first_not_found:
+			set_gui(0)
+			show_error('Could not find the device. Make sure that it is plugged in and recognized by the computer.')
+			self.first_not_found = False
 			
+		elif self.found and not self.connected:
+			try:
+				status.update('Attempting to connect to the device...')
+				self.arduino = serial.Serial(self.path, 9600, timeout=1)
+				time.sleep(2) #should wait for 2 seconds for the arduino to reset
+				
+				set_gui(1) #enabling the gui
+				status.update('The device has been connected.')
+				
+				self.connected = True
+				
+			except serial.serialutil.SerialException:
+				if self.first_could_not_connect:
+					set_gui(0)
+					show_error('Could not connect to the device.')	
+					self.first_could_not_connect = False
+					
+				else:
+					set_gui(0)
+				
+		elif self.connected and not self.found:
+			set_gui(0)
+			show_error('The device has been disconnected.')
+			
+			self.first_could_not_connect = True #enabling this again to make it possible for the error to run again
+			self.connected = False
+			
+	def start_checking(self):
+		self.connect()
+		self.checker.start()
+		
 	#writes data to the arduino
 	def _write(self, command, alt, az):
 		try:
@@ -229,7 +222,8 @@ class Connector(QtCore.QThread):
 			
 		#this might never happen, but it's still there just in case
 		except serial.serialutil.SerialException:
-			self.failed.emit('Could not send the information to the device.')
+			set_gui(0)
+			show_error('Could not send the information to the device.')
 		
 	def move(self, alt, az):
 		self._write('m', alt, az)
@@ -240,38 +234,11 @@ class Connector(QtCore.QThread):
 		
 	def stop_moving(self):
 		self._write('s', 0, 0) #it doesn't matter what the alt and az is as this would just stop the device
-		self.done_moving.emit()
-		self.status_update.emit('Stopped')
+		status.update('Stopped')
 		
 	#sets the coordinates saved in the Arduino to 0
 	def reset_location(self):
 		self._write('r', 0, 0) #it doesn't matter what the alt and az, the arduino will always reset the coordinates to zero
-		
-	#reads data from the arduino
-	def _read(self):
-		try:
-			#if there is something that's sent by the arduino, then that means that the device is done moving
-			#the else statement can be used for debugging
-			if self.arduino.in_waiting:
-				message = self.arduino.readline()
-				if b'done' in message:
-					self.stop_reading()
-					self.done_moving.emit()
-					self.status_update.emit('Done')
-				else:
-					print(message)
-				
-		#this might happen if the arduino was disconnected while the device is moving, or if the program is in solar or lunar tracking mode
-		except serial.serialutil.SerialException:
-			self.stop_reading()
-			self.done_moving.emit()
-			self.failed.emit('Could not retrieve the needed information from the device.')
-		
-	def start_reading(self):
-		self.reader.start()
-		
-	def stop_reading(self):
-		self.reader.stop()
 	
 	#runs once the program is closed
 	def close(self):
@@ -331,49 +298,41 @@ class Status:
 	def _remove(self):
 		main_window.statusLabel.setText('')
 		
-#the function that runs when the button is clicked to move and stop the device
+#the function that runs when the set button is clicked
 def set_button_clicked():
-	if main_window.pushButton.text() == 'Set':
-		if main_window.manualRadio.isChecked():
-			if main_window.altitudeBox.text() == '' or main_window.azimuthBox.text() == '':
-				show_error('One or both of the boxes are empty.')
-				
-			else:
-				connector.start_reading() #will check every 0.1 second until it receives something from the arduino
-				connector.move(main_window.altitudeBox.text(), main_window.azimuthBox.text()) #move the device to the user inputs
-				main_window.pushButton.setText('Stop') #change the text to stop to make it possible for the user to stop the device
-				
-		elif main_window.solarRadio.isChecked():
-			#start tracking the sun, updates every 5 minutes
-			main_window.pushButton.setText('Stop')
-			coordinates.start_tracking(coordinates.sun, main_window.sunAltBox.value(), main_window.sunAzBox.value())			
+	if main_window.manualRadio.isChecked():
+		if main_window.altitudeBox.text() == '' or main_window.azimuthBox.text() == '':
+			show_error('One or both of the boxes are empty.')
 			
 		else:
-			main_window.pushButton.setText('Stop')
-			coordinates.start_tracking(coordinates.moon, main_window.moonAltBox.value(), main_window.moonAzBox.value())
+			connector.move(main_window.altitudeBox.text(), main_window.azimuthBox.text()) #move the device to the user inputs
 			
-	#the else statement will run if the button text is 'Stop'
+	elif main_window.solarRadio.isChecked():
+		#start tracking the sun, updates every 5 minutes
+		coordinates.start_tracking(coordinates.sun, main_window.sunAltBox.value(), main_window.sunAzBox.value())			
+		
 	else:
-		main_window.pushButton.setText('Set') #change the button text back to 'Set'
-		connector.stop_moving() #stop moving if the device is moving
-		connector.stop_reading() #stop looking for a signal from the arduino if the software was checking for it
-		coordinates.stop_tracking() #stop tracking the sun or the moon if the device was in solar or lunar tracking mode
+		coordinates.start_tracking(coordinates.moon, main_window.moonAltBox.value(), main_window.moonAzBox.value())
+		
+def stop_button_clicked():
+	connector.stop_moving() #stop moving if the device is moving
+	coordinates.stop_tracking() #stop tracking the sun or the moon if the device was in solar or lunar tracking mode
 	
-#used to costumize the pushButton
+#used to costumize the set button
 #enable_button enables or disables the button (similar to previous function)
 #button_text sets the text of the button
 #button_event is the function that would run if the button was clicked
 def set_button(enable_button, button_text, button_event):
-	main_window.pushButton.setEnabled(enable_button)
-	main_window.pushButton.setText(button_text)
+	main_window.setButton.setEnabled(enable_button)
+	main_window.setButton.setText(button_text)
 	
 	#removing any functions that are attached to the button before adding the new function
 	try:
-		main_window.pushButton.clicked.disconnect()
+		main_window.setButton.clicked.disconnect()
 	except TypeError:
 		pass
 		
-	main_window.pushButton.clicked.connect(button_event)
+	main_window.setButton.clicked.connect(button_event)
 	
 #used to display an error, message is the error window's text
 def show_error(message):
@@ -381,46 +340,35 @@ def show_error(message):
 	
 #can be used to enable or disable the entire gui for recalibration_window
 def set_recalibrate_gui(enable):
-	recalibration_window.altLabel.setEnabled(enable)
-	recalibration_window.azLabel.setEnabled(enable)
 	recalibration_window.leftAltButton.setEnabled(enable)
 	recalibration_window.rightAltButton.setEnabled(enable)
 	recalibration_window.leftAzButton.setEnabled(enable)
 	recalibration_window.rightAzButton.setEnabled(enable)
-	recalibration_window.pushButton.setEnabled(enable)
-	recalibration_window.altSpinBox.setEnabled(enable)
-	recalibration_window.azSpinBox.setEnabled(enable)
-
+	recalibration_window.stopButton.setEnabled(enable)
+	recalibration_window.doneButton.setEnabled(enable)
+	
+def set_gui(enable):
+	#disabling the whole gui
+	set_button(enable, 'Set', set_button_clicked)
+	main_window.stopButton.setEnabled(enable)
+	set_recalibrate_gui(enable)
+	
 #moves the device relatively by alt snd az
 def recalibration_buttons_clicked(alt, az):
 	connector.relative_move(alt, az)
-	connector.start_reading() #waiting for a signal indicating that the device is done to change the button's text
-	recalibration_window.pushButton.setText('Stop')
-	recalibration_window.pushButton.setEnabled(1)
+	recalibration_window.doneButton.setEnabled(1)
 	
 #resets the coordinates saved in the arduino once the user is done recalibrating the device
 def done_button_clicked():
-	if recalibration_window.pushButton.text() == 'Done':
-		connector.reset_location()
-		recalibration_window.pushButton.setEnabled(0)
-		
-	#if the text is 'Stop'
-	else:
-		connector.stop_moving()
-		connector.stop_reading()
-		recalibration_window.pushButton.setText('Done')
+	connector.reset_location()
+	recalibration_window.doneButton.setEnabled(0)
 	
 #--------------------------------------------------
-#this function manages the gui and the software's internal operations
-def event(state):
-	pass
 	
 #runs when a succeded signal is emitted from the coordinates object (retrieved the data successfully)
 def on_coordinates_success():
-	#the gui will still be disabled, because we still need to try to connect to the arduino
-	set_button(0, 'Set', set_button_clicked)
-	
-	connector.start() #starting to attempt to connect to the arduino here
+	set_gui(1)
+	connector.start_checking() #starting to attempt to connect to the arduino here
 	
 #runs when a failed signal is emitted from the coordinates object
 def on_coordinates_failure(message):
@@ -435,31 +383,6 @@ def on_coordinates_sent(alt, az):
 	#displaying it with 0 decimal points
 	main_window.altitudeBox.setText('{:.0f}'.format(alt))
 	main_window.azimuthBox.setText('{:.0f}'.format(az))
-	
-def on_coordinates_error(message):
-	main_window.pushButton.setText('Set')
-	show_error(message)
-	
-#runs when a succeded signal is emitted from the connector object (connected to the arduino)
-def on_connector_success():
-	#enabling the gui
-	set_button(1, 'Set', set_button_clicked)
-	set_recalibrate_gui(1)
-	
-#runs when a failed signal is emitted from the connector object
-def on_connector_failure(message):
-	#disabling the whole gui
-	set_button(0, 'Set', set_button_clicked)
-	set_recalibrate_gui(0)
-	
-	#an error will only be displayed when the string that comes with the signal is not empty
-	if message != '':
-		show_error(message)
-		
-#runs when a done_moving signal is emitted from the connector object (when data is received from the arduino, indicating that the device is done moving)
-def on_connector_done_moving():
-	main_window.pushButton.setText('Set')
-	recalibration_window.pushButton.setText('Done')
 	
 #--------------------------------------------------
 	
@@ -476,7 +399,10 @@ connector = Connector()
 
 #disabling the gui before attempting to get the skyfield data files and connecting to the arduino
 set_button(0, 'Set', set_button_clicked)
+main_window.stopButton.setEnabled(0)
 set_recalibrate_gui(0)
+
+main_window.stopButton.clicked.connect(stop_button_clicked)
 
 #clicking the recalibrate button will show the recalibration_window
 main_window.recalibrateButton.clicked.connect(recalibration_window.show)
@@ -490,25 +416,20 @@ main_window.altitudeBox.textChanged.connect(altitude_validator.validate)
 main_window.azimuthBox.textChanged.connect(azimuth_validator.validate)
 
 #clicking any of the four buttons will move the device relatively in different directions
-recalibration_window.leftAltButton.clicked.connect(lambda: recalibration_buttons_clicked(recalibration_window.altSpinBox.value(), 0))
-recalibration_window.rightAltButton.clicked.connect(lambda: recalibration_buttons_clicked(-recalibration_window.altSpinBox.value(), 0))
+recalibration_window.leftAltButton.clicked.connect(lambda: recalibration_buttons_clicked(-recalibration_window.altSpinBox.value(), 0))
+recalibration_window.rightAltButton.clicked.connect(lambda: recalibration_buttons_clicked(recalibration_window.altSpinBox.value(), 0))
 recalibration_window.leftAzButton.clicked.connect(lambda: recalibration_buttons_clicked(0, recalibration_window.azSpinBox.value()))
 recalibration_window.rightAzButton.clicked.connect(lambda: recalibration_buttons_clicked(0, -recalibration_window.azSpinBox.value()))
 
 #clicking the 'done' button will reset the location in the arduino
-recalibration_window.pushButton.clicked.connect(done_button_clicked)
+recalibration_window.doneButton.clicked.connect(done_button_clicked)
+recalibration_window.stopButton.clicked.connect(stop_button_clicked)
 
 #connecting the functions to the signals
 coordinates.succeded.connect(on_coordinates_success)
 coordinates.failed.connect(on_coordinates_failure)
 coordinates.sent.connect(on_coordinates_sent)
 coordinates.status_update.connect(status.update)
-coordinates.coordinates_error.connect(on_coordinates_error)
-
-connector.succeded.connect(on_connector_success)
-connector.failed.connect(on_connector_failure)
-connector.done_moving.connect(on_connector_done_moving)
-connector.status_update.connect(status.update)
 
 #displaying the main_window to the user, and starting the thread of the coordinates object (the run method)
 main_window.show()
